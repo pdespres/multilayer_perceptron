@@ -14,6 +14,7 @@ import sys
 import csv
 import os.path
 import numpy as np
+import neural_network
 
 def load_and_prep_data(csvfile):
 
@@ -70,11 +71,18 @@ def train(csvfile, param=0):
 	# global parameters
 	np.random.seed(42)
 	train_share = 0.8
+	mlp_layers = [10,10]
+	mlp_init = ['','']			#random sur distrib 'uniform' or 'normal'(default with '')
+	mlp_activation = ['','']	#'relu' or 'sigmoid' or 'tanh'(default with '')
 
+	# Data retrieval and cleaning
 	data, y = load_and_prep_data(csvfile)
 	x_train, x_valid, y_train, y_valid = divide_dataset(data, y, train_share)
 
-	# print(len(x_train), len(y_train))
+	# Multilayer Perceptron construction according to parameters
+	mlp = net_constructer(mlp_layers, mlp_init, mlp_activation)
+
+	
 
 def params(param):
 	#load params according to the command line options

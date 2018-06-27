@@ -13,10 +13,8 @@ import numpy as np
 # bias_constraint: Constraint function applied to the bias vector (see constraints).
 
 class Layer:
-	
-	batch_size = None
 
-	def __init__(self, inputs, outputs, bias, layer_id):
+	def __init__(self, inputs, outputs, bias, init, activation, layer_id):
 	   
 		self.layer_id   = layer_id
 		self.inputs     = inputs
@@ -24,16 +22,14 @@ class Layer:
 		self.bias       = bias
 		self.size 		= inputs + bias
 
-		# # summation vector
-		# self.z = self.initialize_vector((self.inputs, Layer.batch_size))
-				
-		# activation vector
-		## just inialize the vector, afterwards process as actual activation
-		self.a = self.initialize_vector((self.inputs, Layer.batch_size))
+		# z = x * W(eights) + b(ias) with x == inputs
+		# layer result a = activation(z)
+
+		# init
+		self.z 			= self.initialize_vector(self.inputs)
+		self.a 			= self.initialize_vector(self.inputs)
 		self.set_activation()        
-		
-		# weight matrix
-		self.W = self.initialize_weights()        
+		self.W 			= self.initialize_weights()        
 		
 		# # delta-error vector
 		# self.d = self.initialize_vector((self.bias + self.inputs, Layer.batch_size))
@@ -48,7 +44,10 @@ class Layer:
 		# case there's none next layer as the output layer, also there's no Weight matrix
 		if( self.outputs == None):
 			return np.array([])
-		weights = np.random.randn(self.outputs * self.size)
+		if activation == 'uniform':
+			weights = np.random.rand(self.outputs * self.size)
+		else: #normal
+			weights = np.random.randn(self.outputs * self.size)
 		weights = weights.reshape(self.outputs, self.size)
 		return weights
 
@@ -56,34 +55,32 @@ class Layer:
 		return np.random.normal(size=n_dimensions)
 
 	def set_activation(self):
-		self.a = utils.fun_sigmoid(self.z)
+		if activation == 'sigmoid':
+			self.a = 1 / (1 + np.exp(-self.z))
+		elif activation = 'relu':
+			self.a = max(0, self.z)
+		else: #tanh
+			self.a = (np.exp(self.z) - np.exp(-self.z)) / (np.exp(self.z) + np.exp(-self.z))
 		if self.bias: 
 			self.add_activation_bias()
 
-
-	
-	# def add_activation_bias(self):
-	# 	if len(self.a.shape) == 1:
-	# 		self.a = np.vstack((1, self.a))
-	# 	else:
-	# 		self.a = np.vstack((np.ones(self.a.shape[1]), self.a))
-
-
+	def add_activation_bias(self):
+		if len(self.a.shape) == 1:
+			self.a = np.vstack((1, self.a))
+		else:
+			self.a = np.vstack((np.ones(self.a.shape[1]), self.a))
 
 	# def get_derivative_of_activation(self):
 	# 	return utils.fun_sigmoid_derivative(self.a)
-
-
+# sigmoid ∇xJ=y(1−y)∇yJ 
+# tanh	∇xJ=(1+y)(1−y)∇yJ
+# relu	∇xJ=[y≥0]∇yJ
 
 	# def update_weights(self, r):
 	# 	self.W += -(r*self.g)
 
-
-
 	# def check_gradient_computation(self, atol):
 	# 	return np.allclose(self.g, self.ga, atol=atol)
-
-
 		
 	# def print_layer(self):
 	# 	print "W:\n %s \n" %(self.W)
@@ -91,3 +88,26 @@ class Layer:
 	# 	print "a: %s" %(self.a)
 	# 	print "d: %s" %(self.d)
 	# 	print "g: %s" %(self.g)
+
+def net_constructer(array_layers_dim, array_init, array_activation):
+	net = []
+
+	for i in np.arange(len(array_layers_dim) - 1, dtype=int):
+		# first layer connected to all features
+		if (i == 0):
+			l = Layer.__init__(self, array_layers_dim[i], array_layers_dim[i+1], bias=True,  \
+				init=array_init[i], activation=array_activation[i], 0)
+			l.z = []
+		# output layer
+		elif (i == len(array_layers_dim))
+			l = Layer.__init__(self, array_layers_dim[-1], n_units_next=None, bias=False,  \
+				init=array_init[i], activation=array_activation[i], layer_id=len(array_layers_dim))
+			l.g = []
+			l.ga = []
+		# hidden layers
+		else
+			l = Layer.__init__(self, array_layers_dim[i], array_layers_dim[i+1], bias=True, \
+				init=array_init[i], activation=array_activation[i], layer_id=i)
+		net.append(l)
+
+	return net
