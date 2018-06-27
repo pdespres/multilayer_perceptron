@@ -13,26 +13,68 @@ Supported options:
 import sys
 import csv
 import os.path
+import numpy as np
 
-def load_file(csvfile):
-	#open file / create headers(column name) and data arrays
-	if not os.path.isfile(csvfile):
-		exit_error('can\'t find the file ' + csvfile)
-	data = []
-	with open(csvfile) as csv_iterator:
-		data_reader = csv.reader(csv_iterator, delimiter=',')
-		for row in data_reader:
-			data.append(row)
-	csv_iterator.close()
-	if len(data) < 2:
-		exit_error('file ' + csvfile + ' is empty')
-	headers = data[0]
-	del data[0]
-	return headers, data
+def load_and_prep_data(csvfile):
+
+	# category to int function for y
+	def f(i):
+		if i[1] == 'M':
+			return 1
+		else:
+			return 0
+
+	#open file proc
+	def load_data(csvfile):
+		if not os.path.isfile(csvfile):
+			exit_error('can\'t find the file ' + csvfile)
+		data = []
+		with open(csvfile) as csv_iterator:
+			data_reader = csv.reader(csv_iterator, delimiter=',')
+			for row in data_reader:
+				data.append(row)
+		csv_iterator.close()
+		if len(data) < 1:
+			exit_error('file ' + csvfile + ' is empty')
+		return data
+
+	# load data from csvfile
+	dataRaw = np.array(load_data(csvfile))
+	dataTemp = []
+
+	# fill y / replace categorical values with numeric values (1 is for 'M')
+	y = np.array([f(i) for i in dataRaw])
+
+	# remove unwanted columns/features
+	dataRaw = np.delete(dataRaw, [0,1,4,5], 1)
+
+	# cast to float
+	dataRaw = dataRaw.astype('float')
+
+	# normalize data using transpose
+	dataTemp = np.zeros((dataRaw.shape[1], dataRaw.shape[0]))
+	for index, feature in enumerate(dataRaw.T):
+		dataTemp[index] = [(x - min(feature)) / (max(feature) - min(feature)) for x in feature]
+	
+	return dataTemp.T, y
+
+def divide_dataset(data, y, train_share):
+	p = np.random.permutation(len(data))
+	limit = int(len(data) * train_share)
+	data = data[p]
+	y = y[p]
+	return data[:limit], data[limit:], y[:limit], y[limit:]
 
 def train(csvfile, param=0):
 	params(param)
+	# global parameters
+	np.random.seed(42)
+	train_share = 0.8
 
+	data, y = load_and_prep_data(csvfile)
+	x_train, x_valid, y_train, y_valid = divide_dataset(data, y, train_share)
+
+	# print(len(x_train), len(y_train))
 
 def params(param):
 	#load params according to the command line options
@@ -57,10 +99,10 @@ if __name__ == "__main__":
 			if sys.argv[1].find('b') > 0:
 				param += 1
 			if param > 0:
-				describe(sys.argv[-1], param)
+				train(sys.argv[-1], param)
 			else:
 				print(__doc__)
 		else:
 			print(__doc__)
 	else:
-		describe(sys.argv[-1])
+		train(sys.argv[-1])

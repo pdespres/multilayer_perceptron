@@ -27,6 +27,7 @@ def features(csvfile):
 	ax = plt.subplot(2,1,1)
 	corr_matrix = df.corr()
 	ax = sns.heatmap(corr_matrix, ax=ax, annot=True, xticklabels=corr_matrix.columns, yticklabels=corr_matrix.columns)
+	plt.title('Correlation matrix', size = 12)
 
 	# 2D drawing after dimensionality reduction
 	plt.subplot(2,1,2)
@@ -38,6 +39,7 @@ def features(csvfile):
 	pca.fit(df)
 	train_red = pca.transform(df)
 	plt.scatter(train_red[:,0],train_red[:,1], c=y, alpha=0.4)
+	plt.title('Data visualization atfer 2D PCA', size = 12)
 
 	plt.show()
 
