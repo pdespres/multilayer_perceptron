@@ -70,19 +70,30 @@ def train(csvfile, param=0):
 	params(param)
 	# global parameters
 	np.random.seed(42)
-	train_share = 0.8
-	mlp_layers = [10,10]
-	mlp_init = ['','']			#random sur distrib 'uniform' or 'normal'(default with '')
-	mlp_activation = ['','']	#'relu' or 'sigmoid' or 'tanh'(default with '')
+	train_share = 0.8			#share of the dataset to use as train set
+	mlp_layers = [12,10]		#size of each hidden layer
+	mlp_init = ''				#random sur distrib 'uniform' or 'normal'(default normal)
+	mlp_activation = ''			#'relu' or 'sigmoid' or 'tanh'(default tanh)
+	nb_cats = 2					#size of the output layer
+	epochs = 10
 
 	# Data retrieval and cleaning
 	data, y = load_and_prep_data(csvfile)
 	x_train, x_valid, y_train, y_valid = divide_dataset(data, y, train_share)
 
-	# Multilayer Perceptron construction according to parameters
-	mlp = net_constructer(mlp_layers, mlp_init, mlp_activation)
+	# Build Multilayer Perceptron according to parameters => neural_network.py
+	mlp = neural_network.net_constructer(data.shape[1], nb_cats, mlp_layers, mlp_init, mlp_activation)
 
-	
+	for i in range(0, epochs):
+
+		#feed forward
+
+		#error mesure
+
+		#back propagation
+
+		#print info
+
 
 def params(param):
 	#load params according to the command line options
