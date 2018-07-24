@@ -9,21 +9,18 @@ class Layer:
 	   
 		self.inputs     = inputs
 		self.outputs    = outputs
-		self.bias       = bias
-		self.size 		= inputs + bias
 		self.init 		= init
 		self.activation = activation
 		self.layer_id   = layer_id
 
-		# z = x * W(eights) + b(ias) with x == inputs
-		# layer result a = activation(z)
-
-		# init
-		self.z 			= self.initialize_vector(self.inputs)
-		self.a 			= self.initialize_vector(self.inputs)
-		self.set_activation()        
-		self.W 			= self.initialize_weights()        
-		
+		# init vectors / z = x * W(eights) + b(ias) with x == inputs / layer result a = activation(z)
+		self.W 			= self.initialize_weights()
+		self.z 			= np.zeros(self.inputs)
+		self.a 			= np.zeros(self.inputs)
+		self.bias		= np.zeros(self.inputs)
+		if bias:
+			self.bias	= np.ones((self.outputs, 1))
+#self.z 			= self.initialize_vector(self.inputs)
 		# # delta-error vector
 		# self.d = self.initialize_vector((self.bias + self.inputs, Layer.batch_size))
 		
@@ -35,14 +32,10 @@ class Layer:
 
 	def initialize_weights(self):
 		if self.init == 'uniform':
-			weights = np.random.rand(self.outputs * self.inputs)
+			weights = np.random.rand(self.outputs, self.inputs)
 		else: #normal
-			weights = np.random.randn(self.outputs * self.inputs)
-		weights = weights.reshape(self.outputs, self.inputs)
+			weights = np.random.randn(self.outputs, self.inputs)
 		return weights
-
-	def initialize_vector(self, n_dimensions):
-		return np.random.normal(size=n_dimensions)
 
 	def set_activation(self):
 		if self.activation == 'sigmoid':
@@ -52,11 +45,22 @@ class Layer:
 		else: #tanh
 			self.a = (np.exp(self.z) - np.exp(-self.z)) / (np.exp(self.z) + np.exp(-self.z))
 
-	# def get_derivative_of_activation(self):
-	# 	return utils.fun_sigmoid_derivative(self.a)
+	def softmax(self):
+		exp_scores = np.exp(self.a)
+		return exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
+
+	def get_derivative_of_activation(self):
+		if self.activation == 'sigmoid':
+			return x * (1 - x)
+		elif self.activation == 'relu':
+			return 1. * (x > 0)
+		else: #tanh
+			return 1
+	
 # sigmoid ∇xJ=y(1−y)∇yJ 
 # tanh	∇xJ=(1+y)(1−y)∇yJ
 # relu	∇xJ=[y≥0]∇yJ
+# softmax np.multiply(x, 1 - x)
 
 	# def update_weights(self, r):
 	# 	self.W += -(r*self.g)
@@ -71,6 +75,28 @@ class Layer:
 		#print ("d: %s" % (self.d))
 		#print ("g: %s" % (self.g))
 
+def cross_entropy_loss(yhat, y):
+	log_likelihood = -np.log(yhat.T[range(y.shape[0]), y])
+	loss = np.sum(log_likelihood) / y.shape[0]
+	return loss
+
+def feed_forward(mlp, x):
+
+	# z = x * W(eights) + b(ias) with x == inputs
+	# layer result a = activation(z)
+	for i in range(len(mlp)):
+
+		if (i == 0):
+			#first layer: data input
+			data = x
+		else:
+			data = mlp[i-1].a
+
+		mlp[i].z = np.dot(mlp[i].W, data) + mlp[i].bias
+		mlp[i].set_activation()
+
+	return mlp[-1].softmax()
+
 def net_constructer(features, categories, array_layers_dim, array_init, array_activation):
 	net = []
 
@@ -80,7 +106,6 @@ def net_constructer(features, categories, array_layers_dim, array_init, array_ac
 		if (i == 0):
 			l = Layer(features, array_layers_dim[i], bias=True,  \
 				init=array_init, activation=array_activation, layer_id=i)
-			l.print_layer()
 			net.append(l)
 
 		if i == len(array_layers_dim) - 1:
@@ -91,8 +116,7 @@ def net_constructer(features, categories, array_layers_dim, array_init, array_ac
 			# other hidden layers
 			l = Layer(array_layers_dim[i], array_layers_dim[i+1], bias=True, \
 			init=array_init, activation=array_activation, layer_id=i+1)
-			
-		l.print_layer()
+	
 		net.append(l)
 
 	return net

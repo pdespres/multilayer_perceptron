@@ -57,13 +57,16 @@ def load_and_prep_data(csvfile):
 	for index, feature in enumerate(dataRaw.T):
 		dataTemp[index] = [(x - min(feature)) / (max(feature) - min(feature)) for x in feature]
 	
+	print('\n\033[32mData loaded...\033[0m')
+	print('\033[32m%d data rows for %d features...\033[0m' % (dataTemp.T.shape[0], dataTemp.T.shape[1]))
 	return dataTemp.T, y
 
 def divide_dataset(data, y, train_share):
-	p = np.random.permutation(len(data))
 	limit = int(len(data) * train_share)
+	p = np.random.permutation(len(data))
 	data = data[p]
 	y = y[p]
+	print('\033[32mShuffling the dataset...\033[0m')
 	return data[:limit], data[limit:], y[:limit], y[limit:]
 
 def train(csvfile, param=0):
@@ -75,24 +78,47 @@ def train(csvfile, param=0):
 	mlp_init = ''				#random sur distrib 'uniform' or 'normal'(default normal)
 	mlp_activation = ''			#'relu' or 'sigmoid' or 'tanh'(default tanh)
 	nb_cats = 2					#size of the output layer
-	epochs = 10
+	epochs = 3
+	batch_size = 32
 
 	# Data retrieval and cleaning
 	data, y = load_and_prep_data(csvfile)
 	x_train, x_valid, y_train, y_valid = divide_dataset(data, y, train_share)
+	print('\033[32m%d rows for the train dataset (%d%%), %d rows for validation...\033[0m\n' % \
+		(x_train.shape[0], train_share * 100, x_valid.shape[0]))
 
 	# Build Multilayer Perceptron according to parameters => neural_network.py
-	mlp = neural_network.net_constructer(data.shape[1], nb_cats, mlp_layers, mlp_init, mlp_activation)
+	mlp = neural_network.net_constructer(x_train.shape[1], nb_cats, mlp_layers, mlp_init, mlp_activation)
+	print('\033[32mMultilayer Perceptron build...Layers %s\033[0m\n' % (mlp_layers))
+	for i in range(epochs):
 
-	for i in range(0, epochs):
+		start = 0
+		for j in range(round((x_train.shape[0] / batch_size) + .49)):
 
-		#feed forward
+			end = min((j+1)*batch_size, x_train.shape[0])
 
-		#error mesure
+			#feed forward
+			probas = neural_network.feed_forward(mlp, x_train[start:end].T)
+		
+			#error mesure
+			loss = neural_network.cross_entropy_loss(probas, y_train[start:end])
+		
+			#back propagation
+		
+			start = end
 
-		#back propagation
+		#print epoch info
+		probas = neural_network.feed_forward(mlp, x_train.T)
+		loss_t = neural_network.cross_entropy_loss(probas, y_train)
+		probas = neural_network.feed_forward(mlp, x_valid.T)
+		loss_v = neural_network.cross_entropy_loss(probas, y_valid)
+		print('epoch %d/%d - loss: %.4f - val_loss: %.4f' % ((i + 1), epochs, loss_t, loss_v))
 
-		#print info
+		#save epoch? ou save batch?
+
+	#save model
+
+	#Graph
 
 
 def params(param):
