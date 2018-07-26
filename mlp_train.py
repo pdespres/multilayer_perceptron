@@ -80,6 +80,8 @@ def train(csvfile, param=0):
 	nb_cats = 2					#size of the output layer
 	epochs = 3
 	batch_size = 32
+	epsilon = 0.01
+	
 
 	# Data retrieval and cleaning
 	data, y = load_and_prep_data(csvfile)
@@ -104,7 +106,8 @@ def train(csvfile, param=0):
 			loss = neural_network.cross_entropy_loss(probas, y_train[start:end])
 		
 			#back propagation
-		
+			neural_network.back_propagation(mlp, loss)
+
 			start = end
 
 		#print epoch info

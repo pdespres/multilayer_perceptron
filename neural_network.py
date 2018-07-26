@@ -20,9 +20,7 @@ class Layer:
 		self.bias		= np.zeros(self.inputs)
 		if bias:
 			self.bias	= np.ones((self.outputs, 1))
-#self.z 			= self.initialize_vector(self.inputs)
-		# # delta-error vector
-		# self.d = self.initialize_vector((self.bias + self.inputs, Layer.batch_size))
+		self.d 			= np.zeros(bias + self.inputs)
 		
 		# # gradient error vector
 		# self.g = self.initialize_vector(self.W.shape)
@@ -46,21 +44,23 @@ class Layer:
 			self.a = (np.exp(self.z) - np.exp(-self.z)) / (np.exp(self.z) + np.exp(-self.z))
 
 	def softmax(self):
-		exp_scores = np.exp(self.a)
-		return exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
+		shift_a = self.a - np.max(self.a)
+		exp_scores = np.exp(shift_a)
+		return exp_scores / np.sum(exp_scores, axis=0)
 
-	def get_derivative_of_activation(self):
+	def softmax_grad(self):
+		s = softmax.reshape(-1,1)
+		return np.diagflat(s) - np.dot(s, s.T)
+//////////SOFTMAX?
+	def derivative_of_activation(self): 
 		if self.activation == 'sigmoid':
-			return x * (1 - x)
+			return np.multiply(self.a, (1.0 - self.a))
 		elif self.activation == 'relu':
-			return 1. * (x > 0)
+			return 1. * (self.a > 0)
 		else: #tanh
-			return 1
+			return 1 - np.square(self.a)
 	
-# sigmoid ∇xJ=y(1−y)∇yJ 
-# tanh	∇xJ=(1+y)(1−y)∇yJ
-# relu	∇xJ=[y≥0]∇yJ
-# softmax np.multiply(x, 1 - x)
+
 
 	# def update_weights(self, r):
 	# 	self.W += -(r*self.g)
@@ -96,6 +96,18 @@ def feed_forward(mlp, x):
 		mlp[i].set_activation()
 
 	return mlp[-1].softmax()
+
+def back_propagation(mlp, loss):
+
+	for i in range(len(mlp) - 1, -1, -1):
+		if (i == len(mlp) - 1):
+			error_prec = loss * mlp[-1].softmax_grad(mlp[-1].softmax())
+			print(error_prec)
+		else:
+			error_prec = mlp[i+1].d
+
+		mlp[i].d = np.dot(mlp[i].derivative_of_activation, error_prec)
+
 
 def net_constructer(features, categories, array_layers_dim, array_init, array_activation):
 	net = []
