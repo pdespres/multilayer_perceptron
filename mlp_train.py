@@ -10,6 +10,9 @@ Supported options:
 
 #TODO
 
+#BONI
+# exploration des donnees => features.py dataset_file
+
 import sys
 import csv
 import os.path
@@ -76,22 +79,25 @@ def train(csvfile, param=0):
 	train_share = 0.8			#share of the dataset to use as train set
 	mlp_layers = [12,10]		#size of each hidden layer
 	mlp_init = ''				#random sur distrib 'uniform' or 'normal'(default normal)
-	mlp_activation = ''			#'relu' or 'sigmoid' or 'tanh'(default tanh)
+	mlp_activation = ''			#'relu' (rectified linear unit) or 'sigmoid' or 'tanh'(hyperboloid tangent) (default tanh)
 	nb_cats = 2					#size of the output layer
 	epochs = 3
-	batch_size = 32
-	epsilon = 0.01
+	batch_size = 64
+	learningR = 0.01
 	
 
 	# Data retrieval and cleaning
 	data, y = load_and_prep_data(csvfile)
+
+	# Creation of train and validation dataset
 	x_train, x_valid, y_train, y_valid = divide_dataset(data, y, train_share)
 	print('\033[32m%d rows for the train dataset (%d%%), %d rows for validation...\033[0m\n' % \
 		(x_train.shape[0], train_share * 100, x_valid.shape[0]))
 
 	# Build Multilayer Perceptron according to parameters => neural_network.py
 	mlp = neural_network.net_constructer(x_train.shape[1], nb_cats, mlp_layers, mlp_init, mlp_activation)
-	print('\033[32mMultilayer Perceptron build...Layers %s\033[0m\n' % (mlp_layers))
+	print('\033[32mMultilayer Perceptron build...Hidden layers %s\033[0m\n' % (mlp_layers))
+	
 	for i in range(epochs):
 
 		start = 0
@@ -104,9 +110,9 @@ def train(csvfile, param=0):
 		
 			#error mesure
 			loss = neural_network.cross_entropy_loss(probas, y_train[start:end])
-		
+	
 			#back propagation
-			neural_network.back_propagation(mlp, loss)
+			neural_network.back_propagation(mlp, loss, learningR)
 
 			start = end
 

@@ -19,7 +19,7 @@ def features(csvfile):
 	# column 0 looks like an index. transfo to char length to see if it's useful
 	df[0] = [len(str(x)) for x in df[0]]
 
-	print('\n', df.describe())
+	print('\n', df.describe(include='all'))
 	plt.figure(figsize=(22,15))
 	plt.subplots_adjust(bottom=None, top=0.95)
 

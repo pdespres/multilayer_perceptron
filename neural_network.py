@@ -28,6 +28,7 @@ class Layer:
 		# # gradient approximation vector
 		# self.ga = self.initialize_vector(self.g.shape)
 
+	# Initial values
 	def initialize_weights(self):
 		if self.init == 'uniform':
 			weights = np.random.rand(self.outputs, self.inputs)
@@ -35,6 +36,7 @@ class Layer:
 			weights = np.random.randn(self.outputs, self.inputs)
 		return weights
 
+	# Activation function
 	def set_activation(self):
 		if self.activation == 'sigmoid':
 			self.a = 1 / (1 + np.exp(-self.z))
@@ -43,15 +45,18 @@ class Layer:
 		else: #tanh
 			self.a = (np.exp(self.z) - np.exp(-self.z)) / (np.exp(self.z) + np.exp(-self.z))
 
+	# Output function
 	def softmax(self):
+		# shift_a to overcome float variable upper bound
 		shift_a = self.a - np.max(self.a)
 		exp_scores = np.exp(shift_a)
 		return exp_scores / np.sum(exp_scores, axis=0)
 
+	# Derivative of the output function with cross entropy loss
 	def softmax_grad(self):
-		s = softmax.reshape(-1,1)
+		s = self.softmax().reshape(-1,1)
 		return np.diagflat(s) - np.dot(s, s.T)
-//////////SOFTMAX?
+
 	def derivative_of_activation(self): 
 		if self.activation == 'sigmoid':
 			return np.multiply(self.a, (1.0 - self.a))
@@ -76,6 +81,8 @@ class Layer:
 		#print ("g: %s" % (self.g))
 
 def cross_entropy_loss(yhat, y):
+	#m = Y.shape[1]
+    #L = -(1./m) * ( np.sum( np.multiply(np.log(Y_hat),Y) ) + np.sum( np.multiply(np.log(1-Y_hat),(1-Y)) ) )
 	log_likelihood = -np.log(yhat.T[range(y.shape[0]), y])
 	loss = np.sum(log_likelihood) / y.shape[0]
 	return loss
@@ -97,17 +104,22 @@ def feed_forward(mlp, x):
 
 	return mlp[-1].softmax()
 
-def back_propagation(mlp, loss):
+def back_propagation(mlp, loss, learningR):
 
 	for i in range(len(mlp) - 1, -1, -1):
 		if (i == len(mlp) - 1):
-			error_prec = loss * mlp[-1].softmax_grad(mlp[-1].softmax())
-			print(error_prec)
+			#error_prec = loss * mlp[-1].softmax_grad(mlp[-1].softmax())
+			error_prec = loss * mlp[-1].softmax_grad()
+			print('last layer activation shape ', mlp[-1].softmax().shape)
 		else:
 			error_prec = mlp[i+1].d
 
-		mlp[i].d = np.dot(mlp[i].derivative_of_activation, error_prec)
+		test = mlp[i].derivative_of_activation()
+		print(test.shape, error_prec.shape)
 
+		mlp[i].d = np.dot(mlp[i].derivative_of_activation(), error_prec)
+
+		# update weights avec learningR
 
 def net_constructer(features, categories, array_layers_dim, array_init, array_activation):
 	net = []
