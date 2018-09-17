@@ -77,12 +77,12 @@ def train(csvfile, param=0):
 	# global parameters
 	np.random.seed(42)
 	train_share = 0.8			#share of the dataset to use as train set
-	mlp_layers = [4,3]		#size of each hidden layer
+	mlp_layers = [10,20]		#size of each hidden layer
 	mlp_init = ''				#random sur distrib 'uniform' or 'normal'(default normal)
 	mlp_activation = ''			#'relu' (rectified linear unit) or 'sigmoid' or 'tanh'(hyperboloid tangent) (default tanh)
 	nb_cats = 2					#size of the output layer
 	epochs = 3
-	batch_size = 5
+	batch_size = 64
 	learningR = 0.01
 	
 
@@ -106,8 +106,9 @@ def train(csvfile, param=0):
 			end = min((j+1)*batch_size, x_train.shape[0])
 
 			#feed forward
-			probas = neural_network.feed_forward(mlp, x_train[start:end].T)
-			print('probas ', probas.shape, probas)
+			print(start,end)
+			probas = neural_network.feed_forward(mlp, x_train[start:end])
+
 			#error mesure
 			loss = neural_network.cross_entropy_loss(probas, y_train[start:end])
 	
@@ -117,9 +118,9 @@ def train(csvfile, param=0):
 			start = end
 
 		#print epoch info
-		probas = neural_network.feed_forward(mlp, x_train.T)
+		probas = neural_network.feed_forward(mlp, x_train)
 		loss_t = neural_network.cross_entropy_loss(probas, y_train)
-		probas = neural_network.feed_forward(mlp, x_valid.T)
+		probas = neural_network.feed_forward(mlp, x_valid)
 		loss_v = neural_network.cross_entropy_loss(probas, y_valid)
 		print('epoch %d/%d - loss: %.4f - val_loss: %.4f' % ((i + 1), epochs, loss_t, loss_v))
 

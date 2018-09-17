@@ -20,7 +20,8 @@ class Layer:
 		self.a 			= np.zeros(self.inputs)
 		self.b			= np.zeros(self.outputs)
 		if self.bias:
-			self.b		= np.ones((self.outputs, 1))
+			# self.b		= np.ones((self.outputs, 1))
+			self.b		= np.ones((1, self.outputs))
 		self.d 			= np.zeros(self.inputs)
 		
 		# # gradient error vector
@@ -34,7 +35,8 @@ class Layer:
 		if self.init == 'uniform':
 			weights = np.random.rand(self.outputs, self.inputs)
 		else: #normal
-			weights = np.random.randn(self.outputs, self.inputs)
+			# weights = np.random.randn(self.outputs, self.inputs)
+			weights = np.random.randn(self.inputs, self.outputs)
 		return weights
 
 	# Activation functions
@@ -51,20 +53,18 @@ class Layer:
 	# Output function
 	def softmax(self):
 		# shift_a to overcome float variable upper bound
-		shift_a = self.a - np.max(self.a)
-		exp_scores = np.exp(shift_a)
-		softmax = exp_scores / np.sum(exp_scores, axis=0)
-		return softmax.T
+		shift_z = self.z - np.max(self.z)
+		exp_scores = np.exp(shift_z)
+		softmax = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
+		return softmax
 
 	# Derivative of the output function with cross entropy loss
 	def softmax_grad(self):
 		# s = self.softmax().reshape(-1,1)
 		# return np.diagflat(s) - np.dot(s, s.T)
 		s = self.softmax()
-		print('softmax grad s', s.shape, s)
-		print('y', self.y.shape, self.y)
 		s[range(self.y.shape[0]), self.y] -= 1
-		s = s / self.y.shape[0]
+		# s = s / self.y.shape[0] ???? necessaire?
 		return s
 
 	# Derivatives of the activation functions
@@ -91,8 +91,6 @@ class Layer:
 		#print ("g: %s" % (self.g))
 
 def cross_entropy_loss(yhat, y):
-	#m = Y.shape[1]
-	#L = -(1./m) * ( np.sum( np.multiply(np.log(Y_hat),Y) ) + np.sum( np.multiply(np.log(1-Y_hat),(1-Y)) ) )
 	log_likelihood = -np.log(yhat[range(y.shape[0]), y])
 	loss = np.sum(log_likelihood) / y.shape[0]
 	return loss
@@ -104,36 +102,44 @@ def feed_forward(mlp, x):
 	for i in range(len(mlp)):
 
 		if (i == 0):
-			#first layer: data input
+			#first layer: data input x
 			data = x
 		else:
 			data = mlp[i-1].a
 
-		mlp[i].z = np.dot(mlp[i].W, data) + mlp[i].b
+		mlp[i].z = np.dot(data, mlp[i].W) + mlp[i].b
 		mlp[i].set_activation()
 
 	return mlp[-1].softmax()
 
 def back_propagation(mlp, loss, learningR, y):
 
+	# Delta over softmax
+	mlp[-1].y = y
+	delta = loss * mlp[-1].softmax_grad()
+
 	for i in range(len(mlp) - 1, -1, -1):
-	#for i in np.arange(0, 2, dtype=int)[::-1]:
-		print('i ',i)
+		# print('layer i =',i)
 		if (i == len(mlp) - 1):
-			mlp[i].y = y
-			error_sup = loss * mlp[-1].softmax_grad()
-			print('loss ', loss)
+			mlp[i].d = delta
 		else:
-			# error_sup = mlp[i+1].d
-			error_sup = np.dot(mlp[i+1].d, mlp[i].W)
+			delta = mlp[i+1].d.dot(mlp[i+1].W.T)
+			mlp[i].d = delta * mlp[i].derivative_of_activation()
+			# error_sup = np.dot(mlp[i+1].d, mlp[i].W)
 
-		test = mlp[i].derivative_of_activation()
-		print('delta a, error',test.shape, error_sup.shape)
+		# print('W et delta', mlp[i].W.shape, delta.shape)
+		# print('a transpose', mlp[i].a.T.shape)
+		# error = np.dot(delta, mlp[i].W.T)
+		# error = np.dot(mlp[i].W.T, delta)
+		# print('error', error.shape)
+		# test = mlp[i].derivative_of_activation()
+		# print('delta activation',test.shape)
 
-		mlp[i].d = np.dot(mlp[i].derivative_of_activation(), error_sup)
-		if mlp[i].bias:
-			mlp[i].d = mlp[i].d[1:]
-		print('d', mlp[i].d.shape, mlp[i].d)
+		# mlp[i].d = np.dot(error, mlp[i].derivative_of_activation())
+		# if mlp[i].bias:
+		# 	mlp[i].d = mlp[i].d[1:]
+		# print('new delta', mlp[i].d.shape)
+
 		# update weights avec learningR
 
 def net_constructer(features, categories, array_layers_dim, array_init, array_activation):
