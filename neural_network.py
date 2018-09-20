@@ -20,10 +20,9 @@ class Layer:
 		self.a 			= np.zeros(self.inputs)
 		self.b			= np.zeros(self.outputs)
 		if self.bias:
-			# self.b		= np.ones((self.outputs, 1))
 			self.b		= np.ones((1, self.outputs))
-		self.d 			= np.zeros(self.inputs)
-		
+		self.dW			= np.zeros(self.inputs)
+		self.db			= np.zeros(self.outputs)
 		# # gradient error vector
 		# self.g = self.initialize_vector(self.W.shape)
 
@@ -35,7 +34,6 @@ class Layer:
 		if self.init == 'uniform':
 			weights = np.random.rand(self.outputs, self.inputs)
 		else: #normal
-			# weights = np.random.randn(self.outputs, self.inputs)
 			weights = np.random.randn(self.inputs, self.outputs)
 		return weights
 
@@ -60,8 +58,6 @@ class Layer:
 
 	# Derivative of the output function with cross entropy loss
 	def softmax_grad(self):
-		# s = self.softmax().reshape(-1,1)
-		# return np.diagflat(s) - np.dot(s, s.T)
 		s = self.softmax()
 		s[range(self.y.shape[0]), self.y] -= 1
 		# s = s / self.y.shape[0] ???? necessaire?
@@ -76,12 +72,6 @@ class Layer:
 		else: #tanh
 			return 1 - np.square(self.a)
 
-	# def update_weights(self, r):
-	# 	self.W += -(r*self.g)
-
-	# def check_gradient_computation(self, atol):
-	# 	return np.allclose(self.g, self.ga, atol=atol)
-		
 	def print_layer(self):
 		print('W shape ', self.W.shape)
 		print ("W:\n %s \n" % (self.W))
@@ -92,6 +82,7 @@ class Layer:
 
 def cross_entropy_loss(yhat, y):
 	log_likelihood = -np.log(yhat[range(y.shape[0]), y])
+	# print('loss', np.sum(log_likelihood))
 	loss = np.sum(log_likelihood) / y.shape[0]
 	return loss
 
@@ -108,39 +99,42 @@ def feed_forward(mlp, x):
 			data = mlp[i-1].a
 
 		mlp[i].z = np.dot(data, mlp[i].W) + mlp[i].b
+		# print('W z',mlp[i].W.shape, mlp[i].z.shape)
 		mlp[i].set_activation()
 
 	return mlp[-1].softmax()
 
-def back_propagation(mlp, loss, learningR, y):
+def back_propagation(mlp, learningR, x, y):
 
-	# Delta over softmax
 	mlp[-1].y = y
-	delta = loss * mlp[-1].softmax_grad()
+	# init: Delta over softmax
+	da = mlp[-1].softmax_grad() # 455,2
 
 	for i in range(len(mlp) - 1, -1, -1):
-		# print('layer i =',i)
-		if (i == len(mlp) - 1):
-			mlp[i].d = delta
+
+		# if (i == len(mlp)-1):
+		# 	dz = da
+		# else:
+		dz = mlp[i].derivative_of_activation() * da
+
+		if (i == 0):
+			#first layer: data input x
+			dW = np.dot(x.T, dz)
 		else:
-			delta = mlp[i+1].d.dot(mlp[i+1].W.T)
-			mlp[i].d = delta * mlp[i].derivative_of_activation()
-			# error_sup = np.dot(mlp[i+1].d, mlp[i].W)
+			dW = np.dot(mlp[i-1].a.T, dz)
+			
+		da = np.dot(dz, mlp[i].W.T)
+		db = np.sum(dz, axis=0)
 
-		# print('W et delta', mlp[i].W.shape, delta.shape)
-		# print('a transpose', mlp[i].a.T.shape)
-		# error = np.dot(delta, mlp[i].W.T)
-		# error = np.dot(mlp[i].W.T, delta)
-		# print('error', error.shape)
-		# test = mlp[i].derivative_of_activation()
-		# print('delta activation',test.shape)
+		mlp[i].dW = dW
+		mlp[i].db = db
 
-		# mlp[i].d = np.dot(error, mlp[i].derivative_of_activation())
-		# if mlp[i].bias:
-		# 	mlp[i].d = mlp[i].d[1:]
-		# print('new delta', mlp[i].d.shape)
+		# print('i, dz, dW, da', i, dz.shape, dW.shape, da.shape)
 
-		# update weights avec learningR
+	# update weights avec  learning rate
+	for i in range(len(mlp)):
+		mlp[i].W += -learningR * mlp[i].dW
+		mlp[i].b += -learningR * mlp[i].db
 
 def net_constructer(features, categories, array_layers_dim, array_init, array_activation):
 	net = []

@@ -76,13 +76,13 @@ def train(csvfile, param=0):
 	params(param)
 	# global parameters
 	np.random.seed(42)
-	train_share = 0.8			#share of the dataset to use as train set
+	train_share = 0.8			#share of the dataset (total=1) to use as train set
 	mlp_layers = [10,20]		#size of each hidden layer
 	mlp_init = ''				#random sur distrib 'uniform' or 'normal'(default normal)
 	mlp_activation = ''			#'relu' (rectified linear unit) or 'sigmoid' or 'tanh'(hyperboloid tangent) (default tanh)
 	nb_cats = 2					#size of the output layer
-	epochs = 3
-	batch_size = 64
+	epochs = 70
+	batch_size = 128
 	learningR = 0.01
 	
 
@@ -91,6 +91,7 @@ def train(csvfile, param=0):
 
 	# Creation of train and validation dataset
 	x_train, x_valid, y_train, y_valid = divide_dataset(data, y, train_share)
+	batch_size = x_train.shape[0]
 	print('\033[32m%d rows for the train dataset (%d%%), %d rows for validation...\033[0m\n' % \
 		(x_train.shape[0], train_share * 100, x_valid.shape[0]))
 
@@ -106,23 +107,25 @@ def train(csvfile, param=0):
 			end = min((j+1)*batch_size, x_train.shape[0])
 
 			#feed forward
-			print(start,end)
 			probas = neural_network.feed_forward(mlp, x_train[start:end])
-
-			#error mesure
+			# print(probas[:5])
+			# #error mesure
 			loss = neural_network.cross_entropy_loss(probas, y_train[start:end])
-	
+			print(i, loss)
+
 			#back propagation
-			neural_network.back_propagation(mlp, loss, learningR, y_train[start:end])
+			neural_network.back_propagation(mlp, learningR, x_train[start:end], y_train[start:end])
 
 			start = end
 
-		#print epoch info
-		probas = neural_network.feed_forward(mlp, x_train)
-		loss_t = neural_network.cross_entropy_loss(probas, y_train)
-		probas = neural_network.feed_forward(mlp, x_valid)
-		loss_v = neural_network.cross_entropy_loss(probas, y_valid)
-		print('epoch %d/%d - loss: %.4f - val_loss: %.4f' % ((i + 1), epochs, loss_t, loss_v))
+		# #print epoch info
+		# if (i) % 1000 == 0:
+		# 	print(i, loss)
+		# 	probas = neural_network.feed_forward(mlp, x_train)
+		# 	loss_t = neural_network.cross_entropy_loss(probas, y_train)
+		# 	probas = neural_network.feed_forward(mlp, x_valid)
+		# 	loss_v = neural_network.cross_entropy_loss(probas, y_valid)
+		# 	print('epoch %d/%d - loss: %.4f - val_loss: %.4f' % ((i), epochs, loss_t, loss_v))
 
 		#save epoch? ou save batch?
 
