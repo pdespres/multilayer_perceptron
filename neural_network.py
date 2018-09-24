@@ -23,11 +23,6 @@ class Layer:
 			self.b		= np.ones((1, self.outputs))
 		self.dW			= np.zeros(self.inputs)
 		self.db			= np.zeros(self.outputs)
-		# # gradient error vector
-		# self.g = self.initialize_vector(self.W.shape)
-
-		# # gradient approximation vector
-		# self.ga = self.initialize_vector(self.g.shape)
 
 	# Initial values
 	def initialize_weights(self):
@@ -38,30 +33,19 @@ class Layer:
 		return weights
 
 	# Activation functions
+	# softmax is not really an 'activation' but can fit here
 	def set_activation(self):
 		if self.activation == 'sigmoid':
 			self.a = 1 / (1 + np.exp(-self.z))
 		elif self.activation == 'relu':
 			self.a = max(0, self.z)
+		elif self.activation == 'softmax':
+			# shift_a to overcome float variable upper bound
+			shift_z = self.z - np.max(self.z)
+			exp_scores = np.exp(shift_z)
+			self.a = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
 		else: #tanh
 			self.a = (np.exp(self.z) - np.exp(-self.z)) / (np.exp(self.z) + np.exp(-self.z))
-		# print(self.a.shape)
-		# print ("a: %s" % (self.a))
-
-	# Output function
-	def softmax(self):
-		# shift_a to overcome float variable upper bound
-		shift_z = self.z - np.max(self.z)
-		exp_scores = np.exp(shift_z)
-		softmax = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
-		return softmax
-
-	# Derivative of the output function with cross entropy loss
-	def softmax_grad(self):
-		s = self.softmax()
-		s[range(self.y.shape[0]), self.y] -= 1
-		s = s / self.y.shape[0] #???? necessaire?
-		return s
 
 	# Derivatives of the activation functions
 	def derivative_of_activation(self): 
@@ -69,6 +53,11 @@ class Layer:
 			return np.multiply(self.a, (1.0 - self.a))
 		elif self.activation == 'relu':
 			return 1. * (self.a > 0)
+		elif self.activation == 'softmax':
+			s = self.a
+			s[range(self.y.shape[0]), self.y] -= 1
+			s = s / self.y.shape[0]
+			return s
 		else: #tanh
 			return 1 - np.square(self.a)
 
@@ -77,12 +66,9 @@ class Layer:
 		print ("W:\n %s \n" % (self.W))
 		print ("z: %s" % (self.z))
 		print ("a: %s" % (self.a))
-		#print ("d: %s" % (self.d))
-		#print ("g: %s" % (self.g))
 
 def cross_entropy_loss(yhat, y):
 	log_likelihood = -np.log(yhat[range(y.shape[0]), y])
-	# print('loss', np.sum(log_likelihood))
 	loss = np.sum(log_likelihood) / y.shape[0]
 	return loss
 
@@ -101,24 +87,17 @@ def feed_forward(mlp, x):
 		mlp[i].z = np.dot(data, mlp[i].W) + mlp[i].b
 		
 		mlp[i].set_activation()
-		# print('LAYERS i W z a', i, mlp[i].W.shape, mlp[i].z.shape, mlp[i].a.shape)
-		# if (i == 1):
-		# 	print('W start', mlp[i].W)
-	return mlp[-1].softmax()
+
+	return mlp[-1].a
 
 def back_propagation(mlp, learningR, x, y):
 
 	mlp[-1].y = y
-	# init: Delta over softmax
-	da = mlp[-1].softmax_grad() # 455,2
-	# print('delta softmax', da.shape, da[:2])
-	# for i in range(len(mlp) - 1, -1, -1):
+	delta = 1
+
 	for i in range(len(mlp) - 1, -1, -1):
 
-		if (i == len(mlp)-1):
-			dz = da
-		else:
-			dz = mlp[i].derivative_of_activation() * da
+		dz = mlp[i].derivative_of_activation() * delta
 
 		if (i == 0):
 			#first layer: data input x
@@ -126,23 +105,16 @@ def back_propagation(mlp, learningR, x, y):
 		else:
 			dW = np.dot(mlp[i-1].a.T, dz)
 			
-		da = np.dot(dz, mlp[i].W.T)
+		delta = np.dot(dz, mlp[i].W.T)
 		db = np.sum(dz, axis=0)
 
 		mlp[i].dW = dW
 		mlp[i].db = db
 
-		# print('i, dz, dW, da', i, dz.shape, dW.shape, da.shape)
-
 	# update weights avec  learning rate
 	for i in range(len(mlp)):
-		# if (i == 1):
-		# 	print('W before', mlp[i].W)
-		# 	print('mod', -learningR * mlp[i].dW)
 		mlp[i].W += -learningR * mlp[i].dW
 		mlp[i].b += -learningR * mlp[i].db
-		# if (i == 1):
-		# 	print('W after', mlp[i].W, '\n')
 
 def net_constructer(features, categories, array_layers_dim, array_init, array_activation):
 	net = []
@@ -158,7 +130,7 @@ def net_constructer(features, categories, array_layers_dim, array_init, array_ac
 		if i == len(array_layers_dim) - 1:
 			# output layer
 			l = Layer(array_layers_dim[i], categories, bias=True, \
-			init=array_init, activation=array_activation, layer_id=i+1)
+			init=array_init, activation='softmax', layer_id=i+1)
 		else:
 			# other hidden layers
 			l = Layer(array_layers_dim[i], array_layers_dim[i+1], bias=True, \

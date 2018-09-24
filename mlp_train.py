@@ -18,6 +18,7 @@ import csv
 import os.path
 import numpy as np
 import neural_network
+import matplotlib.pyplot as plt
 
 def load_and_prep_data(csvfile):
 
@@ -72,11 +73,23 @@ def divide_dataset(data, y, train_share):
 	print('\033[32mShuffling the dataset...\033[0m')
 	return data[:limit], data[limit:], y[:limit], y[limit:]
 
+def draw_graph(errors_t, errors_v, epochs):
+	param_range = np.arange(1, epochs+1, 1)
+	plt.figure(figsize=(10,10))
+	plt.plot(param_range, errors_t, label="Training score", color="black")
+	plt.plot(param_range, errors_v, label="Validation score", color="green")
+	plt.title("Validation Curve")
+	plt.xlabel("Epochs")
+	plt.ylabel("Cross entropy loss")
+	plt.tight_layout()
+	plt.legend(loc="best")
+	plt.show()
+
 def train(csvfile, param=0):
 	params(param)
 	# global parameters
 	np.random.seed(42)
-	train_share = 0.8			#share of the dataset (total=1) to use as train set
+	train_share = 0.7			#share of the dataset (total=1) to use as train set
 	mlp_layers = [100, 100]		#size of each hidden layer
 	mlp_init = ''				#random sur distrib 'uniform' or 'normal'(default normal)
 	mlp_activation = ''			#'relu' (rectified linear unit) or 'sigmoid' or 'tanh'(hyperboloid tangent) (default tanh)
@@ -99,6 +112,8 @@ def train(csvfile, param=0):
 	mlp = neural_network.net_constructer(x_train.shape[1], nb_cats, mlp_layers, mlp_init, mlp_activation)
 	print('\033[32mMultilayer Perceptron build...Hidden layers %s\033[0m\n' % (mlp_layers))
 	
+	errors_v = [] ; errors_t = []
+
 	for i in range(epochs):
 
 		start = 0
@@ -108,29 +123,41 @@ def train(csvfile, param=0):
 
 			#feed forward
 			probas = neural_network.feed_forward(mlp, x_train[start:end])
-			# print('probas', probas[:2])
-			# print('y', y_train[:2])
 
 			#back propagation
 			neural_network.back_propagation(mlp, learningR, x_train[start:end], y_train[start:end])
 
 			start = end
 
-		# #print epoch info
-		if (i) % 10 == 0:
-		# 	print(i, loss)
+		# print epoch info
+		if (i+1) % 100 == (i+1) % 100:
 			probas = neural_network.feed_forward(mlp, x_train)
 			loss_t = neural_network.cross_entropy_loss(probas, y_train)
 			probas = neural_network.feed_forward(mlp, x_valid)
 			loss_v = neural_network.cross_entropy_loss(probas, y_valid)
-			print('epoch %d/%d - loss: %.4f - val_loss: %.4f' % ((i), epochs, loss_t, loss_v))
+			print('epoch %d/%d - loss: %.4f - val_loss: %.4f' % ((i+1), epochs, loss_t, loss_v))
+			errors_v.append(loss_v) ; errors_t.append(loss_t)
 
 		#save epoch? ou save batch?
 
-	#save model
+		# shuffle dataset for next epoch
+		p = np.random.permutation(len(x_train))
+		x_train = x_train[p]
+		y_train = y_train[p]
+
+	from sklearn.metrics import confusion_matrix
+	tn, fp, fn, tp = confusion_matrix(np.argmax(probas, axis=1), y_valid).ravel()
+	print(confusion_matrix(np.argmax(probas, axis=1), y_valid))
+	print('accuracy: ', (tn+tp)/y_valid.shape[0])
 
 	#Graph
+	draw_graph(errors_t, errors_v, epochs)
 
+	#save model
+	weights = []
+	for i in range(len(mlp)):
+		weights.append(mlp[i].W)
+	np.save('./data/weights.npy', weights)
 
 def params(param):
 	#load params according to the command line options
