@@ -60,7 +60,7 @@ class Layer:
 	def softmax_grad(self):
 		s = self.softmax()
 		s[range(self.y.shape[0]), self.y] -= 1
-		# s = s / self.y.shape[0] ???? necessaire?
+		s = s / self.y.shape[0] #???? necessaire?
 		return s
 
 	# Derivatives of the activation functions
@@ -99,9 +99,11 @@ def feed_forward(mlp, x):
 			data = mlp[i-1].a
 
 		mlp[i].z = np.dot(data, mlp[i].W) + mlp[i].b
-		# print('W z',mlp[i].W.shape, mlp[i].z.shape)
+		
 		mlp[i].set_activation()
-
+		# print('LAYERS i W z a', i, mlp[i].W.shape, mlp[i].z.shape, mlp[i].a.shape)
+		# if (i == 1):
+		# 	print('W start', mlp[i].W)
 	return mlp[-1].softmax()
 
 def back_propagation(mlp, learningR, x, y):
@@ -109,13 +111,14 @@ def back_propagation(mlp, learningR, x, y):
 	mlp[-1].y = y
 	# init: Delta over softmax
 	da = mlp[-1].softmax_grad() # 455,2
-
+	# print('delta softmax', da.shape, da[:2])
+	# for i in range(len(mlp) - 1, -1, -1):
 	for i in range(len(mlp) - 1, -1, -1):
 
-		# if (i == len(mlp)-1):
-		# 	dz = da
-		# else:
-		dz = mlp[i].derivative_of_activation() * da
+		if (i == len(mlp)-1):
+			dz = da
+		else:
+			dz = mlp[i].derivative_of_activation() * da
 
 		if (i == 0):
 			#first layer: data input x
@@ -133,8 +136,13 @@ def back_propagation(mlp, learningR, x, y):
 
 	# update weights avec  learning rate
 	for i in range(len(mlp)):
+		# if (i == 1):
+		# 	print('W before', mlp[i].W)
+		# 	print('mod', -learningR * mlp[i].dW)
 		mlp[i].W += -learningR * mlp[i].dW
 		mlp[i].b += -learningR * mlp[i].db
+		# if (i == 1):
+		# 	print('W after', mlp[i].W, '\n')
 
 def net_constructer(features, categories, array_layers_dim, array_init, array_activation):
 	net = []

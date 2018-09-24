@@ -77,7 +77,7 @@ def train(csvfile, param=0):
 	# global parameters
 	np.random.seed(42)
 	train_share = 0.8			#share of the dataset (total=1) to use as train set
-	mlp_layers = [10,20]		#size of each hidden layer
+	mlp_layers = [100, 100]		#size of each hidden layer
 	mlp_init = ''				#random sur distrib 'uniform' or 'normal'(default normal)
 	mlp_activation = ''			#'relu' (rectified linear unit) or 'sigmoid' or 'tanh'(hyperboloid tangent) (default tanh)
 	nb_cats = 2					#size of the output layer
@@ -108,10 +108,8 @@ def train(csvfile, param=0):
 
 			#feed forward
 			probas = neural_network.feed_forward(mlp, x_train[start:end])
-			# print(probas[:5])
-			# #error mesure
-			loss = neural_network.cross_entropy_loss(probas, y_train[start:end])
-			print(i, loss)
+			# print('probas', probas[:2])
+			# print('y', y_train[:2])
 
 			#back propagation
 			neural_network.back_propagation(mlp, learningR, x_train[start:end], y_train[start:end])
@@ -119,13 +117,13 @@ def train(csvfile, param=0):
 			start = end
 
 		# #print epoch info
-		# if (i) % 1000 == 0:
+		if (i) % 10 == 0:
 		# 	print(i, loss)
-		# 	probas = neural_network.feed_forward(mlp, x_train)
-		# 	loss_t = neural_network.cross_entropy_loss(probas, y_train)
-		# 	probas = neural_network.feed_forward(mlp, x_valid)
-		# 	loss_v = neural_network.cross_entropy_loss(probas, y_valid)
-		# 	print('epoch %d/%d - loss: %.4f - val_loss: %.4f' % ((i), epochs, loss_t, loss_v))
+			probas = neural_network.feed_forward(mlp, x_train)
+			loss_t = neural_network.cross_entropy_loss(probas, y_train)
+			probas = neural_network.feed_forward(mlp, x_valid)
+			loss_v = neural_network.cross_entropy_loss(probas, y_valid)
+			print('epoch %d/%d - loss: %.4f - val_loss: %.4f' % ((i), epochs, loss_t, loss_v))
 
 		#save epoch? ou save batch?
 
