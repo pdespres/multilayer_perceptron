@@ -2,16 +2,20 @@
 # waloo le encoding: utf-8 de malade
 
 """
-\033[32musage:	python mlp_train.py [-s] [dataset]
+\033[32musage:	python mlp_train.py [-rk] [dataset]
 
 Supported options:
-	-sXXX 		seed		where XXX is the random seed\033[0m
+	-r 		regul			L2 regularization to avoid over-fitting
+	-k		keep graph 		re-use the previous graph
+	-a 		adam 			optimization with adam method\033[0m
 """
 
 #TODO
-
+# droupout layer?
 #BONI
 # exploration des donnees => features.py dataset_file
+# L2 regul
+# possible de garder le meme graph
 
 import sys
 import csv
@@ -19,6 +23,7 @@ import os.path
 import numpy as np
 import neural_network
 import matplotlib.pyplot as plt
+import pickle
 
 def load_and_prep_data(csvfile):
 
@@ -51,7 +56,8 @@ def load_and_prep_data(csvfile):
 	y = np.array([f(i) for i in dataRaw])
 
 	# remove unwanted columns/features
-	dataRaw = np.delete(dataRaw, [0,1,4,5], 1)
+	# dataRaw = np.delete(dataRaw, [0,1,4,5], 1)
+	dataRaw = np.delete(dataRaw, [0,1], 1)
 
 	# cast to float
 	dataRaw = dataRaw.astype('float')
@@ -75,37 +81,57 @@ def divide_dataset(data, y, train_share):
 	return data[:limit], data[limit:], y[:limit], y[limit:]
 
 def draw_graph(errors_t, errors_v, epochs):
+	graph = './data/graph.pickle'
 	param_range = np.arange(1, epochs+1, 1)
-	plt.figure(figsize=(10,10))
-	plt.plot(param_range, errors_t, label="Training score", color="black")
-	plt.plot(param_range, errors_v, label="Validation score", color="green")
-	plt.title("Validation Curve")
-	plt.xlabel("Epochs")
-	plt.ylabel("Cross entropy loss")
-	plt.tight_layout()
-	plt.legend(loc="best")
+	color = np.random.random(3)
+	if os.path.isfile(graph) and params.keep:
+		with open(graph, 'rb') as pickle_file:
+			ax = pickle.load(pickle_file)
+	else:
+		ax = plt.subplot(111)
+		plt.title("Validation Curve")
+		plt.xlabel("Epochs")
+		plt.ylabel("Cross entropy loss")
+		plt.tight_layout()
+		plt.legend(loc="best")
+	# plt.plot(param_range, errors_t, label="Training score", color="black")
+	# plt.plot(param_range, errors_v, label="Validation score", color="green")
+	plt.plot(param_range, errors_t, '--', label="Training score", color=color)
+	plt.plot(param_range, errors_v, label="Validation score", color=color)
+	if os.path.isfile(graph):
+		os.remove(graph)
+	pickle.dump(ax, open(graph, 'wb'))
 	plt.show()
+
+def gradient_descent():
+
 
 def train(csvfile, param=0):
 	params(param)
 	# global parameters
 	np.random.seed(42)
 	train_share = 0.7			#share of the dataset (total=1) to use as train set
-	mlp_layers = [100,100]		#size of each hidden layer
+	mlp_layers = [42,24]		#size of each hidden layer
 	mlp_init = ''				#random sur distrib 'uniform' or 'normal'(default normal)
 	mlp_activation = ''			#'relu' (rectified linear unit) or 'sigmoid' or 'tanh'(hyperboloid tangent) (default tanh)
 	nb_cats = 2					#size of the output layer
 	epochs = 70					#number of times the whole dataset will be read
-	batch_size = 128			#for SGD: number of data rows that will be processed together
+	batch_size = 128			#for adam: number of data rows that will be processed together
 	learningR = 0.05			#modifier applied to weights update
-	
+	regL2 = 0.03
 
 	# Data retrieval and cleaning
 	data, y = load_and_prep_data(csvfile)
 
 	# Creation of train and validation dataset
 	x_train, x_valid, y_train, y_valid = divide_dataset(data, y, train_share)
-	batch_size = x_train.shape[0]
+
+	# Mod to run without boni
+	if not params.adam:
+		batch_size = x_train.shape[0]
+	if not params.regul:
+		regL2 = 0.
+
 	print('\033[32m%d rows for the train dataset (%d%%), %d rows for validation...\033[0m\n' % \
 		(x_train.shape[0], train_share * 100, x_valid.shape[0]))
 
@@ -117,6 +143,10 @@ def train(csvfile, param=0):
 
 	for i in range(epochs):
 
+		if params.adam:
+		else:
+			gradient_descent()
+
 		start = 0
 		for j in range(round((x_train.shape[0] / batch_size) + .49)):
 
@@ -126,12 +156,13 @@ def train(csvfile, param=0):
 			probas = neural_network.feed_forward(mlp, x_train[start:end])
 
 			#back propagation
-			neural_network.back_propagation(mlp, learningR, x_train[start:end], y_train[start:end])
+			neural_network.back_propagation(mlp, learningR, regL2, x_train[start:end], y_train[start:end])
 
 			start = end
 
 		# print epoch info
 		if (i+1) % 100 == (i+1) % 100:
+		# if (i+1) % 100 == 0:
 			probas = neural_network.feed_forward(mlp, x_train)
 			loss_t = neural_network.cross_entropy_loss(probas, y_train)
 			probas = neural_network.feed_forward(mlp, x_valid)
@@ -155,6 +186,7 @@ def train(csvfile, param=0):
 	tn, fp, fn, tp = confusion_matrix(np.argmax(probas, axis=1), y).ravel()
 	print(confusion_matrix(np.argmax(probas, axis=1), y))
 	print('accuracy: ', (tn+tp)/y.shape[0])
+
 	#Graph
 	draw_graph(errors_t, errors_v, epochs)
 
@@ -168,9 +200,15 @@ def train(csvfile, param=0):
 
 def params(param):
 	#load params according to the command line options
-	params.bonus = False
-	if param == 1:
-		params.bonus = True
+	params.regul = False
+	params.keep = False
+	params.adam = False
+	if param in (1,3,5):
+		params.regul = True
+	if param in (2,3):
+		params.keep = True
+	if param in (4,5):
+		params.adam = True
 	return
 
 def exit_error(string):
@@ -185,11 +223,20 @@ if __name__ == "__main__":
 	elif argc == 3:
 		#traitement params
 		param = 0
-		if (sys.argv[1][0] == '-' and len(sys.argv[1]) == 2):
-			if sys.argv[1].find('b') > 0:
+		count = 0
+		if (sys.argv[1][0] == '-' and len(sys.argv[1]) in range(2,4)):
+			if sys.argv[1].find('r') > 0:
 				param += 1
-			if param > 0:
-				train(sys.argv[-1], param)
+				count += 1
+			if sys.argv[1].find('k') > 0:
+				param += 2
+				count += 1
+			if sys.argv[1].find('a') > 0:
+				param += 4
+				count += 1
+			# if param > 0 and param < 6 and (count + 1) == len(sys.argv[1]):
+			if param > 0 and (count + 1) == len(sys.argv[1]):
+				train_lr(sys.argv[-1], param)
 			else:
 				print(__doc__)
 		else:

@@ -90,7 +90,7 @@ def feed_forward(mlp, x):
 
 	return mlp[-1].a
 
-def back_propagation(mlp, learningR, x, y):
+def back_propagation(mlp, learningR, regL2, x, y):
 
 	mlp[-1].y = y
 	delta = 1
@@ -113,6 +113,8 @@ def back_propagation(mlp, learningR, x, y):
 
 	# update weights avec  learning rate
 	for i in range(len(mlp)):
+		if regL2 != 0.:
+			mlp[i].dW += regL2 * mlp[i].W 
 		mlp[i].W += -learningR * mlp[i].dW
 		mlp[i].b += -learningR * mlp[i].db
 
