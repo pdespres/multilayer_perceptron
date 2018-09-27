@@ -2,10 +2,10 @@
 # waloo le encoding: utf-8 de malade
 
 """
-\033[32musage:	python mlp_train.py [-b] [dataset]
+\033[32musage:	python mlp_train.py [-s] [dataset]
 
 Supported options:
-	-b 		bonus		bonus fields\033[0m
+	-sXXX 		seed		where XXX is the random seed\033[0m
 """
 
 #TODO
@@ -29,7 +29,7 @@ def load_and_prep_data(csvfile):
 		else:
 			return 0
 
-	#open file proc
+	# open file proc
 	def load_data(csvfile):
 		if not os.path.isfile(csvfile):
 			exit_error('can\'t find the file ' + csvfile)
@@ -66,6 +66,7 @@ def load_and_prep_data(csvfile):
 	return dataTemp.T, y
 
 def divide_dataset(data, y, train_share):
+	# shuffle & divide in 2 parts according to train_share & divide X and Y
 	limit = int(len(data) * train_share)
 	p = np.random.permutation(len(data))
 	data = data[p]
@@ -90,13 +91,13 @@ def train(csvfile, param=0):
 	# global parameters
 	np.random.seed(42)
 	train_share = 0.7			#share of the dataset (total=1) to use as train set
-	mlp_layers = [100, 100]		#size of each hidden layer
+	mlp_layers = [100,100]		#size of each hidden layer
 	mlp_init = ''				#random sur distrib 'uniform' or 'normal'(default normal)
 	mlp_activation = ''			#'relu' (rectified linear unit) or 'sigmoid' or 'tanh'(hyperboloid tangent) (default tanh)
 	nb_cats = 2					#size of the output layer
-	epochs = 70
-	batch_size = 128
-	learningR = 0.01
+	epochs = 70					#number of times the whole dataset will be read
+	batch_size = 128			#for SGD: number of data rows that will be processed together
+	learningR = 0.05			#modifier applied to weights update
 	
 
 	# Data retrieval and cleaning
@@ -108,7 +109,7 @@ def train(csvfile, param=0):
 	print('\033[32m%d rows for the train dataset (%d%%), %d rows for validation...\033[0m\n' % \
 		(x_train.shape[0], train_share * 100, x_valid.shape[0]))
 
-	# Build Multilayer Perceptron according to parameters => neural_network.py
+	# Build Multilayer Perceptron according to parameters => refer to neural_network.py
 	mlp = neural_network.net_constructer(x_train.shape[1], nb_cats, mlp_layers, mlp_init, mlp_activation)
 	print('\033[32mMultilayer Perceptron build...Hidden layers %s\033[0m\n' % (mlp_layers))
 	
@@ -145,19 +146,25 @@ def train(csvfile, param=0):
 		x_train = x_train[p]
 		y_train = y_train[p]
 
+	# for dev
 	from sklearn.metrics import confusion_matrix
 	tn, fp, fn, tp = confusion_matrix(np.argmax(probas, axis=1), y_valid).ravel()
 	print(confusion_matrix(np.argmax(probas, axis=1), y_valid))
 	print('accuracy: ', (tn+tp)/y_valid.shape[0])
-
+	probas = neural_network.feed_forward(mlp, data)
+	tn, fp, fn, tp = confusion_matrix(np.argmax(probas, axis=1), y).ravel()
+	print(confusion_matrix(np.argmax(probas, axis=1), y))
+	print('accuracy: ', (tn+tp)/y.shape[0])
 	#Graph
 	draw_graph(errors_t, errors_v, epochs)
 
 	#save model
-	weights = []
+	model = []
+	model.append(neural_network.topology(mlp))
 	for i in range(len(mlp)):
-		weights.append(mlp[i].W)
-	np.save('./data/weights.npy', weights)
+		layer = [mlp[i].W, mlp[i].b]
+		model.append(layer)
+	np.save('./data/model.npy', model)
 
 def params(param):
 	#load params according to the command line options

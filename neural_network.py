@@ -116,11 +116,25 @@ def back_propagation(mlp, learningR, x, y):
 		mlp[i].W += -learningR * mlp[i].dW
 		mlp[i].b += -learningR * mlp[i].db
 
+def topology(mlp):
+	layers = []
+	for i in range(len(mlp)):
+		layer = [mlp[i].W.shape[0], mlp[i].W.shape[1], mlp[i].bias, mlp[i].init, mlp[i].activation]
+		layers.append(layer)
+	return layers
+
+def net_loader(layers):
+	net = []
+	for i in range(len(layers)):
+		l = Layer(layers[i][0], layers[i][1], layers[i][2], \
+			layers[i][3], layers[i][4], i)
+		net.append(l)
+	return net
+
 def net_constructer(features, categories, array_layers_dim, array_init, array_activation):
 	net = []
 
-	for i in np.arange(len(array_layers_dim), dtype=int):
-
+	for i in range(len(array_layers_dim)):
 		# first layer connected to all features
 		if (i == 0):
 			l = Layer(features, array_layers_dim[i], bias=True,  \
