@@ -37,29 +37,30 @@ class Layer:
 	def set_activation(self):
 		if self.activation == 'sigmoid':
 			self.a = 1 / (1 + np.exp(-self.z))
-		elif self.activation == 'relu':
-			self.a = max(0, self.z)
+		elif self.activation == 'tanh':
+			self.a = (np.exp(self.z) - np.exp(-self.z)) / (np.exp(self.z) + np.exp(-self.z))
 		elif self.activation == 'softmax':
 			# shift_a to overcome float variable upper bound
-			shift_z = self.z - np.max(self.z)
+			shift_z = self.z - np.max(self.z, axis=1, keepdims=True)
 			exp_scores = np.exp(shift_z)
 			self.a = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
-		else: #tanh
-			self.a = (np.exp(self.z) - np.exp(-self.z)) / (np.exp(self.z) + np.exp(-self.z))
+		else: #relu
+			self.a = self.z * (self.z > 0)
 
 	# Derivatives of the activation functions
 	def derivative_of_activation(self): 
 		if self.activation == 'sigmoid':
 			return np.multiply(self.a, (1.0 - self.a))
-		elif self.activation == 'relu':
-			return 1. * (self.a > 0)
+		elif self.activation == 'tanh':
+			return 1 - np.square(self.a)
 		elif self.activation == 'softmax':
 			s = self.a
 			s[range(self.y.shape[0]), self.y] -= 1
 			s = s / self.y.shape[0]
 			return s
-		else: #tanh
-			return 1 - np.square(self.a)
+		else: #relu
+			return 1. * (self.a > 0)
+
 
 	def print_layer(self):
 		print('W shape ', self.W.shape)
@@ -72,10 +73,13 @@ def cross_entropy_loss(yhat, y):
 	loss = np.sum(log_likelihood) / y.shape[0]
 	return loss
 
-def feed_forward(mlp, x):
+def feed_forward(mlp, x, y):
 
 	# z = x * W(eights) + b(ias) with x == inputs
 	# layer result a = activation(z)
+
+	mlp[-1].y = y
+
 	for i in range(len(mlp)):
 
 		if (i == 0):
@@ -85,14 +89,13 @@ def feed_forward(mlp, x):
 			data = mlp[i-1].a
 
 		mlp[i].z = np.dot(data, mlp[i].W) + mlp[i].b
-		
+
 		mlp[i].set_activation()
 
 	return mlp[-1].a
 
-def back_propagation(mlp, learningR, regL2, x, y):
+def back_propagation(mlp, learningR, regL2, x):
 
-	mlp[-1].y = y
 	delta = 1
 
 	for i in range(len(mlp) - 1, -1, -1):
