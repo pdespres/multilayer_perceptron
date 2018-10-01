@@ -5,7 +5,7 @@ import numpy as np
 
 class Layer:
 
-	def __init__(self, inputs, outputs, bias, init, activation, layer_id):
+	def __init__(self, inputs, outputs, bias, init, activation, optimizer, layer_id):
 	   
 		self.inputs     = inputs
 		self.outputs    = outputs
@@ -13,6 +13,7 @@ class Layer:
 		self.activation = activation
 		self.layer_id   = layer_id
 		self.bias		= bias
+		self.optimizer	= optimizer
 		# init vectors / z = x * W(eights) + b(ias) with x == inputs
 		# layer result a = activation(z)
 		self.W 			= self.initialize_weights()
@@ -23,11 +24,17 @@ class Layer:
 			self.b		= np.ones((1, self.outputs))
 		self.dW			= np.zeros(self.inputs)
 		self.db			= np.zeros(self.outputs)
+		if optimizer == 'adam':
+			self.M 		= np.zeros((self.inputs, self.outputs))
+			self.R 		= np.zeros((self.inputs, self.outputs))
+			if self.bias:
+				self.Mb	= np.zeros((1, self.outputs))
+				self.Rb	= np.zeros((1, self.outputs))
 
 	# Initial values
 	def initialize_weights(self):
 		if self.init == 'uniform':
-			weights = np.random.rand(self.outputs, self.inputs)
+			weights = np.random.rand(self.inputs, self.outputs)
 		else: #normal
 			weights = np.random.randn(self.inputs, self.outputs)
 		return weights
@@ -94,9 +101,13 @@ def feed_forward(mlp, x, y):
 
 	return mlp[-1].a
 
-def back_propagation(mlp, learningR, regL2, x):
+def back_propagation(mlp, learningR, regL2, x, iteration):
 
 	delta = 1
+	# for adam
+	epsilon = 0.00000001
+	beta1 = 0.9
+	beta2 = 0.999
 
 	for i in range(len(mlp) - 1, -1, -1):
 
@@ -118,8 +129,20 @@ def back_propagation(mlp, learningR, regL2, x):
 	for i in range(len(mlp)):
 		if regL2 != 0.:
 			mlp[i].dW += regL2 * mlp[i].W 
-		mlp[i].W += -learningR * mlp[i].dW
-		mlp[i].b += -learningR * mlp[i].db
+		if mlp[i].optimizer == 'adam':
+			mlp[i].M = beta1 * mlp[i].M + (1. - beta1) * mlp[i].dW
+			mlp[i].R = beta2 * mlp[i].R + (1. - beta2) * np.square(mlp[i].dW)
+			m_k_hat = mlp[i].M / (1. - beta1**(iteration+1))
+			r_k_hat = mlp[i].R / (1. - beta2**(iteration+1))
+			mlp[i].W += -learningR / (np.sqrt(r_k_hat) + epsilon) * m_k_hat
+			mlp[i].Mb = beta1 * mlp[i].Mb + (1. - beta1) * mlp[i].db
+			mlp[i].Rb = beta2 * mlp[i].Rb + (1. - beta2) * np.square(mlp[i].db)
+			m_k_hat = mlp[i].Mb / (1. - beta1**(iteration+1))
+			r_k_hat = mlp[i].Rb / (1. - beta2**(iteration+1))
+			mlp[i].b += -learningR / (np.sqrt(r_k_hat) + epsilon) * m_k_hat
+		else:
+			mlp[i].W += -learningR * mlp[i].dW
+			mlp[i].b += -learningR * mlp[i].db
 
 def topology(mlp):
 	layers = []
@@ -136,24 +159,24 @@ def net_loader(layers):
 		net.append(l)
 	return net
 
-def net_constructer(features, categories, array_layers_dim, array_init, array_activation):
+def net_constructer(features, categories, array_layers_dim, array_init, array_activation, optimizer):
 	net = []
 
 	for i in range(len(array_layers_dim)):
 		# first layer connected to all features
 		if (i == 0):
 			l = Layer(features, array_layers_dim[i], bias=True,  \
-				init=array_init, activation=array_activation, layer_id=i)
+				init=array_init, activation=array_activation, optimizer=optimizer, layer_id=i)
 			net.append(l)
 
 		if i == len(array_layers_dim) - 1:
 			# output layer
 			l = Layer(array_layers_dim[i], categories, bias=True, \
-			init=array_init, activation='softmax', layer_id=i+1)
+			init=array_init, activation='softmax', optimizer=optimizer, layer_id=i+1)
 		else:
 			# other hidden layers
 			l = Layer(array_layers_dim[i], array_layers_dim[i+1], bias=True, \
-			init=array_init, activation=array_activation, layer_id=i+1)
+			init=array_init, activation=array_activation, optimizer=optimizer, layer_id=i+1)
 	
 		net.append(l)
 

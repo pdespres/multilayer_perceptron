@@ -104,9 +104,6 @@ def draw_graph(errors_t, errors_v, epochs):
 	pickle.dump(ax, open(graph, 'wb'))
 	plt.show()
 
-def gradient_descent():
-	return
-
 def train(csvfile, param=0):
 	params(param)
 	# global parameters
@@ -120,7 +117,8 @@ def train(csvfile, param=0):
 	batch_size = 128			#for adam: number of data rows that will be processed together
 	learningR = 0.005			#modifier applied to weights update
 	regL2 = 0.03
-	es_nb = 2					#for early stopping: number of times the error has to go up before stopping
+	es_nb = 10					#for early stopping: number of times the error has to go up before stopping
+	optimizer = ''
 
 	# Data retrieval and cleaning
 	data, y = load_and_prep_data(csvfile)
@@ -135,12 +133,15 @@ def train(csvfile, param=0):
 		regL2 = 0.
 	if params.es:
 		epochs = 5000
+	if params.adam:
+		optimizer = 'adam'
 
 	print('\033[32m%d rows for the train dataset (%d%%), %d rows for validation...\033[0m\n' % \
 		(x_train.shape[0], train_share * 100, x_valid.shape[0]))
 
 	# Build Multilayer Perceptron according to parameters => refer to neural_network.py
-	mlp = neural_network.net_constructer(x_train.shape[1], nb_cats, mlp_layers, mlp_init, mlp_activation)
+	mlp = neural_network.net_constructer(x_train.shape[1], nb_cats, mlp_layers, \
+		mlp_init, mlp_activation, optimizer)
 	print('\033[32mMultilayer Perceptron build...Hidden layers %s\033[0m\n' % (mlp_layers))
 	
 	errors_v = [] ; errors_t = [] ; es_model = [] ; test = []
@@ -152,11 +153,9 @@ def train(csvfile, param=0):
 			for l in range(len(mlp)):
 				mlp[l].W = es_model[l][0].copy()
 				mlp[l].b = es_model[l][1].copy()
+			print('\nEarly stopping @epoch {0:.0f}. Rolling back to previous epoch\nBest val_loss: {1:.4f}\n' \
+				.format(i, np.min(errors_v)))
 			break
-		# if params.adam:
-		# 	return
-		# else:
-		# 	gradient_descent()
 
 		start = 0
 		for j in range(round((x_train.shape[0] / batch_size) + .49)):
@@ -167,35 +166,40 @@ def train(csvfile, param=0):
 			probas = neural_network.feed_forward(mlp, x_train[start:end], y_train[start:end])
 
 			#back propagation
-			neural_network.back_propagation(mlp, learningR, regL2, x_train[start:end])
+			neural_network.back_propagation(mlp, learningR, regL2, x_train[start:end], \
+				round(((x_train.shape[0] / batch_size)) * i) + j + 1)
 
 			start = end
 
-		# print epoch info
-		if (i+1) % 100 == (i+1) % 100:
-		# if (i+1) % 100 == 0:
-			probas = neural_network.feed_forward(mlp, x_train, y_train)
-			loss_t = neural_network.cross_entropy_loss(probas, y_train)
-			probas = neural_network.feed_forward(mlp, x_valid, y_valid)
-			loss_v = neural_network.cross_entropy_loss(probas, y_valid)
-			print('epoch %d/%d - loss: %.4f - val_loss: %.4f' % ((i+1), epochs, loss_t, loss_v))
-			if params.es and len(errors_v) > 0 and loss_v >= np.max(errors_v[-1]):
-				es_cpt += 1
-				if es_cpt == es_nb:
-					early_stopping = True
-			else:
-				es_cpt = 0
-				# Save model weights and bias
-				es_model = [] 
-				for k in range(len(mlp)):
-					layer = [mlp[k].W.copy(), mlp[k].b.copy()]
-					es_model.append(layer)
-			errors_v.append(loss_v) ; errors_t.append(loss_t)
+			# print epoch info
+			if (i+1) % 100 == (i+1) % 100:
+			# if (i+1) % 100 == 0:
+				probas = neural_network.feed_forward(mlp, x_train, y_train)
+				loss_t = neural_network.cross_entropy_loss(probas, y_train)
+				probas = neural_network.feed_forward(mlp, x_valid, y_valid)
+				loss_v = neural_network.cross_entropy_loss(probas, y_valid)
+				print('epoch %d/%d batch %d/%d - loss: %.4f - val_loss: %.4f' % \
+					((i+1), epochs, min(x_train.shape[0], (j+1) * batch_size), \
+						x_train.shape[0], loss_t, loss_v))
+				if params.es:
+					if len(errors_v) > 0 and loss_v >= np.min(errors_v):
+						es_cpt += 1
+						if es_cpt == es_nb:
+								early_stopping = True
+					else:
+						es_cpt = 0
+						# Save model weights and bias
+						es_model = [] 
+						for k in range(len(mlp)):
+							layer = [mlp[k].W.copy(), mlp[k].b.copy()]
+							es_model.append(layer)
+				errors_v.append(loss_v) ; errors_t.append(loss_t)
 
-		# # shuffle dataset for next epoch
-		# p = np.random.permutation(len(x_train))
-		# x_train = x_train[p]
-		# y_train = y_train[p]
+		# adam: shuffle dataset for next epoch
+		if params.adam:
+			p = np.random.permutation(len(x_train))
+			x_train = x_train[p]
+			y_train = y_train[p]
 
 	# for dev
 	from sklearn.metrics import confusion_matrix
@@ -210,7 +214,10 @@ def train(csvfile, param=0):
 	print('val_loss: ', neural_network.cross_entropy_loss(probas, y_valid))
 
 	# #Graph
-	# draw_graph(errors_t, errors_v, i + 1 - early_stopping)
+	scale = i + 1 - early_stopping
+	if params.adam:
+		scale = (round((x_train.shape[0] / batch_size)+ .49) * i) #+ j + 1
+	draw_graph(errors_t, errors_v, scale)
 
 	#save model
 	model = []
@@ -222,10 +229,10 @@ def train(csvfile, param=0):
 
 def params(param):
 	#load params according to the command line options
-	params.regul = False
+	params.regul = True
 	params.keep = False
-	params.adam = False
-	params.es = False
+	params.adam = True
+	params.es = True
 	if param in (1,3,5,7,9,11,13,15):
 		params.regul = True
 	if param in (2,3,6,7,10,11,14,15):
