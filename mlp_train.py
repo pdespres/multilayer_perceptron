@@ -7,7 +7,8 @@
 Supported options:
 	-r 		regul			L2 regularization to avoid over-fitting
 	-k		keep graph 		re-use the previous graph
-	-a 		adam 			optimization with adam method\033[0m
+	-a 		adam 			optimization with adam method
+	-e 		early stop		stop training if score worsen\033[0m
 """
 
 #TODO
@@ -16,6 +17,9 @@ Supported options:
 # exploration des donnees => features.py dataset_file
 # L2 regul
 # possible de garder le meme graph
+# early stopping
+# scores: confusion matrix + accuracy + AUC
+# adam optmizer
 
 import sys
 import csv
@@ -56,8 +60,7 @@ def load_and_prep_data(csvfile):
 	y = np.array([f(i) for i in dataRaw])
 
 	# remove unwanted columns/features
-	# dataRaw = np.delete(dataRaw, [0,1,4,5], 1)
-	dataRaw = np.delete(dataRaw, [0,1], 1)
+	dataRaw = np.delete(dataRaw, [0,1,4,5], 1)
 
 	# cast to float
 	dataRaw = dataRaw.astype('float')
@@ -94,8 +97,6 @@ def draw_graph(errors_t, errors_v, epochs):
 		plt.ylabel("Cross entropy loss")
 		plt.tight_layout()
 		plt.legend(loc="best")
-	# plt.plot(param_range, errors_t, label="Training score", color="black")
-	# plt.plot(param_range, errors_v, label="Validation score", color="green")
 	plt.plot(param_range, errors_t, '--', label="Training score", color=color)
 	plt.plot(param_range, errors_v, label="Validation score", color=color)
 	if os.path.isfile(graph):
@@ -115,9 +116,9 @@ def train(csvfile, param=0):
 	mlp_init = ''				#random sur distrib 'uniform' or 'normal'(default normal)
 	mlp_activation = ''			#'relu' (rectified linear unit) or 'sigmoid' or 'tanh'(hyperboloid tangent) (default relu)
 	nb_cats = 2					#size of the output layer
-	epochs = 3000					#number of times the whole dataset will be read
+	epochs = 70					#number of times the whole dataset will be read
 	batch_size = 128			#for adam: number of data rows that will be processed together
-	learningR = 0.05			#modifier applied to weights update
+	learningR = 0.005			#modifier applied to weights update
 	regL2 = 0.03
 	es_nb = 2					#for early stopping: number of times the error has to go up before stopping
 
@@ -132,6 +133,8 @@ def train(csvfile, param=0):
 		batch_size = x_train.shape[0]
 	if not params.regul:
 		regL2 = 0.
+	if params.es:
+		epochs = 5000
 
 	print('\033[32m%d rows for the train dataset (%d%%), %d rows for validation...\033[0m\n' % \
 		(x_train.shape[0], train_share * 100, x_valid.shape[0]))
@@ -147,10 +150,8 @@ def train(csvfile, param=0):
 		if early_stopping:
 			#rollback restore best model weights and bias
 			for l in range(len(mlp)):
-				# print(np.array_equal(mlp[l].W, es_model[l][0]))
-				# print(np.array_equal(test, es_model[l][0]))
-				mlp[l].W[:] = es_model[l][0]
-				mlp[l].b[:] = es_model[l][1]
+				mlp[l].W = es_model[l][0].copy()
+				mlp[l].b = es_model[l][1].copy()
 			break
 		# if params.adam:
 		# 	return
@@ -187,21 +188,14 @@ def train(csvfile, param=0):
 				# Save model weights and bias
 				es_model = [] 
 				for k in range(len(mlp)):
-					temp = [] ; layer = []
-					temp[:] = mlp[k].W
-					layer.append(temp)
-					temp[:] = mlp[k].b
-					layer.append(temp)
-					# layer[:] = [mlp[k].W, mlp[k].b]
+					layer = [mlp[k].W.copy(), mlp[k].b.copy()]
 					es_model.append(layer)
 			errors_v.append(loss_v) ; errors_t.append(loss_t)
 
-		#save epoch? ou save batch?
-
-		# shuffle dataset for next epoch
-		p = np.random.permutation(len(x_train))
-		x_train = x_train[p]
-		y_train = y_train[p]
+		# # shuffle dataset for next epoch
+		# p = np.random.permutation(len(x_train))
+		# x_train = x_train[p]
+		# y_train = y_train[p]
 
 	# for dev
 	from sklearn.metrics import confusion_matrix
@@ -215,8 +209,8 @@ def train(csvfile, param=0):
 	probas = neural_network.feed_forward(mlp, x_valid, y_valid)
 	print('val_loss: ', neural_network.cross_entropy_loss(probas, y_valid))
 
-	#Graph
-	draw_graph(errors_t, errors_v, i + 1 - early_stopping)
+	# #Graph
+	# draw_graph(errors_t, errors_v, i + 1 - early_stopping)
 
 	#save model
 	model = []
@@ -231,13 +225,15 @@ def params(param):
 	params.regul = False
 	params.keep = False
 	params.adam = False
-	params.es = True
-	if param in (1,3,5):
+	params.es = False
+	if param in (1,3,5,7,9,11,13,15):
 		params.regul = True
-	if param in (2,3):
+	if param in (2,3,6,7,10,11,14,15):
 		params.keep = True
-	if param in (4,5):
+	if param in (4,5,6,7,12,13,14,15):
 		params.adam = True
+	if param in (8,9,10,11,12,13,14,15):
+		params.es = True
 	return
 
 def exit_error(string):
@@ -262,6 +258,9 @@ if __name__ == "__main__":
 				count += 1
 			if sys.argv[1].find('a') > 0:
 				param += 4
+				count += 1
+			if sys.argv[1].find('e') > 0:
+				param += 8
 				count += 1
 			# if param > 0 and param < 6 and (count + 1) == len(sys.argv[1]):
 			if param > 0 and (count + 1) == len(sys.argv[1]):

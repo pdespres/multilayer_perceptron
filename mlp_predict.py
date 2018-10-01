@@ -93,7 +93,7 @@ def predict(csvfile, modelfile, param=0):
 	# Data retrieval 
 	mlp = load_mlp(modelfile)
 	data, y = load_and_prep_data(csvfile)
-	probas = neural_network.feed_forward(mlp, data)
+	probas = neural_network.feed_forward(mlp, data, y)
 	for i in range(len(probas)):
 		# print(i, probas[i], f(np.argmax(probas[i])), f(y[i]))
 		# error = f(np.argmax(probas[i])) != f(y[i]) ? 'ERROR' : ''
@@ -102,10 +102,11 @@ def predict(csvfile, modelfile, param=0):
 			f(np.argmax(probas[i])), f(y[i]), error))
 
 	# Results
-	from sklearn.metrics import confusion_matrix
+	from sklearn.metrics import confusion_matrix, roc_auc_score
 	tn, fp, fn, tp = confusion_matrix(np.argmax(probas, axis=1), y).ravel()
 	print('Confusion matrix: ', confusion_matrix(np.argmax(probas, axis=1), y))
 	print('Accuracy: {0:.4f}%'.format((tn+tp)/y.shape[0]))
+	print('ROC AUC score: {0:.2f}'.format(roc_auc_score(y, np.argmax(probas, axis=1))))
 	print('Cross entropy loss: {0:.4f}'.format(neural_network.cross_entropy_loss(probas, y)))
 
 def params(param):
