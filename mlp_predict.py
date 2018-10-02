@@ -2,16 +2,11 @@
 # waloo le encoding: utf-8 de malade
 
 """
-\033[32musage:	python mlp_predict.py [-s] dataset [weights_file]
+\033[32musage:	python mlp_predict.py [-s] dataset [weights_file]\033[0m
 
-Supported options:
-	-sXXX 		seed		where XXX is the random seed\033[0m
 """
 
 #TODO
-
-#BONI
-# exploration des donnees => features.py dataset_file
 
 import sys
 import csv
@@ -82,7 +77,7 @@ def load_mlp(modelfile):
 
 def predict(csvfile, modelfile, param=0):
 
-	# category to int function for y
+	# category to int (function for y)
 	def f(i):
 		if i == 1:
 			return 'M'
@@ -90,13 +85,14 @@ def predict(csvfile, modelfile, param=0):
 			return 'B'
 
 	params(param)
+
 	# Data retrieval 
 	mlp = load_mlp(modelfile)
 	data, y = load_and_prep_data(csvfile)
-	probas = neural_network.feed_forward(mlp, data, y)
+
+	# Feed forward
+	probas = neural_network.feed_forward(mlp, data, y, True)
 	for i in range(len(probas)):
-		# print(i, probas[i], f(np.argmax(probas[i])), f(y[i]))
-		# error = f(np.argmax(probas[i])) != f(y[i]) ? 'ERROR' : ''
 		error = 'ERROR' if f(np.argmax(probas[i])) != f(y[i]) else ''
 		print('row {0:3d} [{1:.3f} {2:.3f}] => {3} {4} {5}'.format(i+1, probas[i][0], probas[i][1], \
 			f(np.argmax(probas[i])), f(y[i]), error))
@@ -104,10 +100,10 @@ def predict(csvfile, modelfile, param=0):
 	# Results
 	from sklearn.metrics import confusion_matrix, roc_auc_score
 	tn, fp, fn, tp = confusion_matrix(np.argmax(probas, axis=1), y).ravel()
-	print('Confusion matrix: ', confusion_matrix(np.argmax(probas, axis=1), y))
+	print('\nConfusion matrix: ', confusion_matrix(np.argmax(probas, axis=1), y))
 	print('Accuracy: {0:.4f}%'.format((tn+tp)/y.shape[0]))
 	print('ROC AUC score: {0:.2f}'.format(roc_auc_score(y, np.argmax(probas, axis=1))))
-	print('Cross entropy loss: {0:.4f}'.format(neural_network.cross_entropy_loss(probas, y)))
+	print('Cross entropy loss: {0:.4f}\n'.format(neural_network.cross_entropy_loss(probas, y)))
 
 def params(param):
 	#load params according to the command line options
@@ -127,11 +123,11 @@ if __name__ == "__main__":
 		print(__doc__)
 	#traitement params
 	param = 0 ; paramExists = False
-	if (sys.argv[1][0] == '-' and len(sys.argv[1]) == 2):
-		if sys.argv[1].find('v') > 0:
-			param += 1
-		else:
-			print(__doc__)
+	# if (sys.argv[1][0] == '-' and len(sys.argv[1]) == 2):
+	# 	if sys.argv[1].find('v') > 0:
+	# 		param += 1
+	# 	else:
+	# 		print(__doc__)
 	#weightfile optional
 	weightfile = './data/model.npy'
 	if argc - param == 3:

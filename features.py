@@ -12,14 +12,25 @@ from sklearn import decomposition
 from sklearn import datasets
 import matplotlib.pyplot as plt
 import seaborn as sns
+import os.path
+
+# https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/wdbc.names
 
 def features(csvfile):
+	if csvfile == '':
+		csvfile = './data/data.csv'
+	if not os.path.isfile(csvfile):
+		exit_error('can\'t find the file ' + csvfile)
 	df = pd.read_csv('./data/data.csv', header=None)
 	df[1] = df[1].astype('category').cat.codes
 	# column 0 looks like an index. transfo to char length to see if it's useful
 	df[0] = [len(str(x)) for x in df[0]]
 
-	print('\n', df.describe(include='all'))
+	for i in range(7):
+		print('\n', df.iloc[:,(i*5):(i+1)*5].describe(include='all'))
+	print('Malignant: ', len(df[df[1]==1]))
+	print('Benign: ', len(df[df[1]==0]))
+
 	plt.figure(figsize=(22,15))
 	plt.subplots_adjust(bottom=None, top=0.95)
 
@@ -49,8 +60,4 @@ def exit_error(string):
 	return
 
 if __name__ == "__main__":
-	argc = len(sys.argv)
-	if argc not in range(2, 3):
-		print(__doc__)
-	else:
-		features(sys.argv[-1])
+	features('')

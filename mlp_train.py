@@ -2,7 +2,7 @@
 # waloo le encoding: utf-8 de malade
 
 """
-\033[32musage:	python mlp_train.py [-rk] [dataset]
+\033[32musage:	python mlp_train.py [-rkae] [dataset]
 
 Supported options:
 	-r 		regul			L2 regularization to avoid over-fitting
@@ -11,15 +11,16 @@ Supported options:
 	-e 		early stop		stop training if score worsen\033[0m
 """
 
-#TODO
-# droupout layer?
 #BONI
-# exploration des donnees => features.py dataset_file
+# exploration des donnees => features.py
 # L2 regul
+# dropout layers
+# adam optmizer
 # possible de garder le meme graph
+# sauvegarde des metriques d'entrainement (useful?)
 # early stopping
 # scores: confusion matrix + accuracy + AUC
-# adam optmizer
+
 
 import sys
 import csv
@@ -107,18 +108,20 @@ def draw_graph(errors_t, errors_v, epochs):
 def train(csvfile, param=0):
 	params(param)
 	# global parameters
+	# best so far [100,100,100] tanh LR 0.01 regL2 0.03 3000 epochs => 0.9876(7) 0.0918
+	# 			[100,100] tanh LR 0.02 regL2 0.02 2188 epochs => 0.9841(9) 0.0865
 	np.random.seed(42)
 	train_share = 0.7			#share of the dataset (total=1) to use as train set
 	mlp_layers = [100,100]		#size of each hidden layer
 	mlp_init = ''				#random sur distrib 'uniform' or 'normal'(default normal)
-	mlp_activation = ''			#'relu' (rectified linear unit) or 'sigmoid' or 'tanh'(hyperboloid tangent) (default relu)
+	mlp_activation = 'tanh'		#'relu' (rectified linear unit) or 'sigmoid' or 'tanh'(hyperboloid tangent) (default relu)
 	nb_cats = 2					#size of the output layer
-	epochs = 70					#number of times the whole dataset will be read
+	epochs = 100				#number of times the whole dataset will be read
 	batch_size = 128			#for adam: number of data rows that will be processed together
-	learningR = 0.005			#modifier applied to weights update
-	regL2 = 0.03
-	es_nb = 10					#for early stopping: number of times the error has to go up before stopping
-	optimizer = ''
+	learningR = 0.01			#modifier applied to weights update
+	regL2 = 0.03				#for regularization: malus applied to weights before update
+	es_nb = 30					#for early stopping: number of times the error has to go up before stopping
+	optimizer = ''				#'adam'. default:gradient descent
 
 	# Data retrieval and cleaning
 	data, y = load_and_prep_data(csvfile)
@@ -126,13 +129,13 @@ def train(csvfile, param=0):
 	# Creation of train and validation dataset
 	x_train, x_valid, y_train, y_valid = divide_dataset(data, y, train_share)
 
-	# Mod to run without boni
+	# Mod according to params
 	if not params.adam:
 		batch_size = x_train.shape[0]
 	if not params.regul:
 		regL2 = 0.
 	if params.es:
-		epochs = 5000
+		epochs = 3000
 	if params.adam:
 		optimizer = 'adam'
 
@@ -141,7 +144,7 @@ def train(csvfile, param=0):
 
 	# Build Multilayer Perceptron according to parameters => refer to neural_network.py
 	mlp = neural_network.net_constructer(x_train.shape[1], nb_cats, mlp_layers, \
-		mlp_init, mlp_activation, optimizer)
+		mlp_init, mlp_activation, optimizer, params.dropout)
 	print('\033[32mMultilayer Perceptron build...Hidden layers %s\033[0m\n' % (mlp_layers))
 	
 	errors_v = [] ; errors_t = [] ; es_model = [] ; test = []
@@ -163,7 +166,7 @@ def train(csvfile, param=0):
 			end = min((j+1)*batch_size, x_train.shape[0])
 
 			#feed forward
-			probas = neural_network.feed_forward(mlp, x_train[start:end], y_train[start:end])
+			probas = neural_network.feed_forward(mlp, x_train[start:end], y_train[start:end], False)
 
 			#back propagation
 			neural_network.back_propagation(mlp, learningR, regL2, x_train[start:end], \
@@ -174,9 +177,9 @@ def train(csvfile, param=0):
 			# print epoch info
 			if (i+1) % 100 == (i+1) % 100:
 			# if (i+1) % 100 == 0:
-				probas = neural_network.feed_forward(mlp, x_train, y_train)
+				probas = neural_network.feed_forward(mlp, x_train, y_train, True)
 				loss_t = neural_network.cross_entropy_loss(probas, y_train)
-				probas = neural_network.feed_forward(mlp, x_valid, y_valid)
+				probas = neural_network.feed_forward(mlp, x_valid, y_valid, True)
 				loss_v = neural_network.cross_entropy_loss(probas, y_valid)
 				print('epoch %d/%d batch %d/%d - loss: %.4f - val_loss: %.4f' % \
 					((i+1), epochs, min(x_train.shape[0], (j+1) * batch_size), \
@@ -193,6 +196,7 @@ def train(csvfile, param=0):
 						for k in range(len(mlp)):
 							layer = [mlp[k].W.copy(), mlp[k].b.copy()]
 							es_model.append(layer)
+				# save data for graph
 				errors_v.append(loss_v) ; errors_t.append(loss_t)
 
 		# adam: shuffle dataset for next epoch
@@ -201,17 +205,17 @@ def train(csvfile, param=0):
 			x_train = x_train[p]
 			y_train = y_train[p]
 
-	# for dev
-	from sklearn.metrics import confusion_matrix
-	tn, fp, fn, tp = confusion_matrix(np.argmax(probas, axis=1), y_valid).ravel()
-	print(confusion_matrix(np.argmax(probas, axis=1), y_valid))
-	print('accuracy: ', (tn+tp)/y_valid.shape[0])
-	probas = neural_network.feed_forward(mlp, data, y)
-	tn, fp, fn, tp = confusion_matrix(np.argmax(probas, axis=1), y).ravel()
-	print(confusion_matrix(np.argmax(probas, axis=1), y))
-	print('accuracy: ', (tn+tp)/y.shape[0])
-	probas = neural_network.feed_forward(mlp, x_valid, y_valid)
-	print('val_loss: ', neural_network.cross_entropy_loss(probas, y_valid))
+	# # for dev
+	# from sklearn.metrics import confusion_matrix
+	# tn, fp, fn, tp = confusion_matrix(np.argmax(probas, axis=1), y_valid).ravel()
+	# print(confusion_matrix(np.argmax(probas, axis=1), y_valid))
+	# print('accuracy: ', (tn+tp)/y_valid.shape[0])
+	# probas = neural_network.feed_forward(mlp, data, y, True)
+	# tn, fp, fn, tp = confusion_matrix(np.argmax(probas, axis=1), y).ravel()
+	# print(confusion_matrix(np.argmax(probas, axis=1), y))
+	# print('accuracy: ', (tn+tp)/y.shape[0])
+	# probas = neural_network.feed_forward(mlp, x_valid, y_valid, True)
+	# print('val_loss: ', neural_network.cross_entropy_loss(probas, y_valid))
 
 	# #Graph
 	scale = i + 1 - early_stopping
@@ -219,7 +223,10 @@ def train(csvfile, param=0):
 		scale = (round((x_train.shape[0] / batch_size)+ .49) * i) #+ j + 1
 	draw_graph(errors_t, errors_v, scale)
 
-	#save model
+	# save metrics
+	np.save('./data/metrics.npy', [errors_t,errors_v])
+
+	#save model for mlp_predict.py
 	model = []
 	model.append(neural_network.topology(mlp))
 	for i in range(len(mlp)):
@@ -229,10 +236,11 @@ def train(csvfile, param=0):
 
 def params(param):
 	#load params according to the command line options
-	params.regul = True
+	params.regul = False
 	params.keep = False
-	params.adam = True
-	params.es = True
+	params.adam = False
+	params.es = False
+	params.dropout = False
 	if param in (1,3,5,7,9,11,13,15):
 		params.regul = True
 	if param in (2,3,6,7,10,11,14,15):
