@@ -264,7 +264,7 @@ if __name__ == "__main__":
 		#traitement params
 		param = 0
 		count = 0
-		if (sys.argv[1][0] == '-' and len(sys.argv[1]) in range(2,4)):
+		if (sys.argv[1][0] == '-' and len(sys.argv[1]) in range(2,6)):
 			if sys.argv[1].find('r') > 0:
 				param += 1
 				count += 1
